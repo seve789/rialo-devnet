@@ -1,0 +1,14 @@
+{
+  "name": "rialo-devnet",
+  "version": "0.1.0",
+  "description": "Verified Rialo devnet lab: @rialo/ts-cdk smoke test with live assertions, plus AGP notes",
+  "type": "module",
+  "scripts": {
+    "test": "node demo.mjs"
+  },
+  "keywords": ["rialo", "devnet", "cdk", "subzero-labs"],
+  "license": "MIT",
+  "dependencies": {
+    "@rialo/ts-cdk": "^0.18.1"
+  }
+}
