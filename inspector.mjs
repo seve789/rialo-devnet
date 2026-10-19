@@ -15,7 +15,13 @@ const outIdx = argv.indexOf('--out');
 const limitIdx = argv.indexOf('--limit');
 const OUT = outIdx >= 0 ? argv[outIdx + 1] : 'index.html';
 const LIMIT = limitIdx >= 0 ? Number(argv[limitIdx + 1]) : 24;
-const targets = argv.filter((a, i) => !a.startsWith('--') && i !== outIdx + 1 && i !== limitIdx + 1);
+const AUTO = argv.includes('--auto');
+// only skip the value slot of a flag that is actually present — outIdx = -1 would
+// otherwise swallow argv[0] (the target) because -1 + 1 === 0
+const skipIdx = new Set();
+if (outIdx >= 0) skipIdx.add(outIdx + 1);
+if (limitIdx >= 0) skipIdx.add(limitIdx + 1);
+const targets = argv.filter((a, i) => !a.startsWith('--') && !skipIdx.has(i));
 
 if (!targets.length) {
   console.error('usage: node inspector.mjs <signature-or-address> [--out index.html] [--limit 24]');
@@ -67,9 +73,78 @@ async function rootsFor(target) {
   }));
 }
 
+const SEED_FILE = 'rex-seed.json';
+
+function loadSeed() {
+  try { return JSON.parse(fs.readFileSync(SEED_FILE, 'utf8')); } catch { return null; }
+}
+
+async function saveSeed(hit) {
+  try { fs.writeFileSync(SEED_FILE, JSON.stringify({ ...hit, foundAt: new Date().toISOString() }, null, 2) + '\n'); }
+  catch { /* non-fatal */ }
+}
+
+async function lineageFor(sig) {
+  try {
+    const lin = await rpc('getWorkflowLineage', [{ signature: sig, maxDepth: 10, includeEvents: true }]);
+    return lin?.lineage?.workflowNodes ?? [];
+  } catch { return []; }
+}
+
+function edgeCounts(nodes) {
+  return {
+    subs: nodes.reduce((a, n) => a + (n.subscriptions?.length ?? 0), 0),
+    kids: nodes.reduce((a, n) => a + (n.workflowChildren?.length ?? 0), 0),
+  };
+}
+
+/**
+ * With --auto: feature a transaction that actually carries REX subscription/child
+ * edges. Order: remembered seed (re-validated) → fresh block scan → nothing.
+ * The seed keeps the site showing a real chain even after it scrolls out of the
+ * scan window.
+ */
+async function findRexEdge(blocks = 20, perBlock = 6) {
+  const seed = loadSeed();
+  if (seed?.sig) {
+    const nodes = await lineageFor(seed.sig);
+    const { subs, kids } = edgeCounts(nodes);
+    if (nodes.length && (subs || kids)) return { ...seed, subs, kids, nodes: nodes.length, source: 'seed' };
+  }
+
+  const head = Number(await rpc('getBlockHeight'));
+  for (let i = 1; i <= blocks; i++) {
+    const h = head - i;
+    let block;
+    try { block = await rpc('getBlock', [{ blockHeight: h, transactionDetails: 'signatures' }]); } catch { continue; }
+    const sigs = (block?.value?.transactions ?? []).map((t) => t?.transaction?.signatures?.[0]).filter(Boolean);
+    for (const sig of sigs.slice(0, perBlock)) {
+      const nodes = await lineageFor(sig);
+      const { subs, kids } = edgeCounts(nodes);
+      if (subs || kids || nodes.length > 1) {
+        const hit = { sig, block: h, nodes: nodes.length, subs, kids, source: 'scan' };
+        await saveSeed(hit);
+        return hit;
+      }
+    }
+  }
+  return null;
+}
+
 async function main() {
   const status = await collectStatus();
   const roots = [];
+  let autoPick = null;
+
+  if (AUTO) {
+    autoPick = await findRexEdge().catch(() => null);
+    if (autoPick) {
+      console.log(`auto: featuring ${autoPick.sig.slice(0, 14)}… (subs=${autoPick.subs} children=${autoPick.kids})`);
+      targets.unshift(autoPick.sig);
+    } else {
+      console.log('auto: no transaction with subscription edges in the sampled window — using the given target');
+    }
+  }
 
   for (const target of targets) {
     for (const r of await rootsFor(target)) {
@@ -86,6 +161,7 @@ async function main() {
   const payload = {
     generatedAt: new Date().toISOString(),
     targets,
+    auto: autoPick,
     status,
     roots: roots.map((r) => ({
       signature: r.signature,
@@ -231,7 +307,9 @@ function render(data) {
   document.getElementById('note').innerHTML =
     '静态快照（浏览器直连 RPC 会被 CORS 拦，所以数据是构建时抓的）。刷新：' +
     '<code>npm run inspector -- ' + esc(data.targets[0]) + '</code>' +
-    ' · 每条链都来自节点真实的 <code>getWorkflowLineage</code> 返回，没有模拟数据。';
+    ' · 每条链都来自节点真实的 <code>getWorkflowLineage</code> 返回，没有模拟数据。' +
+    (data.auto ? ' <b style="color:var(--sub)">自动选中带订阅边的交易</b> <code>' +
+      esc(data.auto.sig.slice(0, 12)) + '…</code>（subs=' + esc(data.auto.subs) + '）' : '');
 
   var stats = [
     ['block height', fmt(data.status.blockHeight)],
@@ -250,7 +328,7 @@ function render(data) {
   }
 
   function drawGraph(root) {
-    var W = 430, H = 44, COL = 210, ROW = 62, PAD = 10;
+    var W = 340, H = 44, COL = 150, ROW = 62, PAD = 10;
     var nodes = root.nodes.slice();
     if (!nodes.length) return '<div class="empty">该交易没有 lineage 节点</div>';
     var pos = {};
