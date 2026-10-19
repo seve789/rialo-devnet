@@ -158,6 +158,21 @@ async function main() {
     }
   }
 
+  // A transaction that is already a member of another root's chain must not also
+  // appear as its own card — otherwise the same chain is listed N times.
+  const memberOfChain = new Set();
+  for (const r of roots) {
+    for (const n of r.lineage?.lineage?.workflowNodes ?? []) {
+      const id = n.id?.toString?.() ?? String(n.id);
+      if (id !== r.signature) memberOfChain.add(id);
+    }
+  }
+  const before = roots.length;
+  const kept = roots.filter((r) => !memberOfChain.has(r.signature));
+  if (kept.length !== before) console.log(`dedupe: dropped ${before - kept.length} root(s) that are members of a longer chain`);
+  roots.length = 0;
+  roots.push(...kept);
+
   const payload = {
     generatedAt: new Date().toISOString(),
     targets,
@@ -252,6 +267,14 @@ function render(data) {
   .empty { color:var(--muted); font-size:12px; padding:10px 2px; }
   .pager { display:flex; gap:8px; align-items:center; justify-content:flex-end; padding:4px 22px 0; font-size:12px; color:var(--muted); }
   .note { padding:10px 22px 0; color:var(--muted); font-size:11px; }
+  .tl { padding:6px 10px 10px; border-top:1px solid var(--border); }
+  .tl-axis { stroke:#39414f; stroke-width:1.5; }
+  .tl-dot { fill:var(--accent); }
+  .tl-dot.bad { fill:var(--bad); }
+  .tl-lab { fill:var(--fg); font-size:10px; font-family:ui-monospace,Menlo,monospace; }
+  .tl-gap { fill:var(--muted); font-size:10px; }
+  .tl-sum { color:var(--muted); font-size:11px; padding:2px 10px 0; }
+  .tl-note { color:var(--muted); font-size:11px; padding:4px 10px 0; }
 </style>
 </head>
 <body>
@@ -311,13 +334,15 @@ function render(data) {
     (data.auto ? ' <b style="color:var(--sub)">自动选中带订阅边的交易</b> <code>' +
       esc(data.auto.sig.slice(0, 12)) + '…</code>（subs=' + esc(data.auto.subs) + '）' : '');
 
+  var chains = data.roots.filter(function (r) { return r.nodes.length > 1; }).length;
   var stats = [
     ['block height', fmt(data.status.blockHeight)],
     ['epoch', fmt(data.status.epoch)],
     ['transactions', fmt(data.status.transactionCount)],
     ['validators', fmt(data.status.validators)],
     ['root txs', fmt(data.roots.length)],
-    ['nodes', fmt(data.roots.reduce(function (a, r) { return a + r.nodes.length; }, 0))]
+    ['nodes', fmt(data.roots.reduce(function (a, r) { return a + r.nodes.length; }, 0))],
+    ['chains', fmt(chains)]
   ];
   document.getElementById('stats').innerHTML = stats.map(function (s) {
     return '<div class="stat"><b>' + s[1] + '</b><span>' + s[0] + '</span></div>';
@@ -328,12 +353,21 @@ function render(data) {
   }
 
   function drawGraph(root) {
-    var W = 340, H = 44, COL = 150, ROW = 62, PAD = 10;
+    var W = 340, H = 44, ROW = 62, PAD = 10, COL = 150;
+    // Horizontal drift is capped: past 4 depth steps the chain continues downward
+    // instead of marching off the right edge (deep REX chains reach depth 14+).
+    var MAX_COL = 4;
     var nodes = root.nodes.slice();
     if (!nodes.length) return '<div class="empty">该交易没有 lineage 节点</div>';
+    var MAX_NODES = 18;
+    var hiddenCount = Math.max(0, nodes.length - MAX_NODES);
+    if (hiddenCount) nodes = nodes.slice(0, MAX_NODES);
     var pos = {};
-    nodes.forEach(function (n, i) { pos[n.id] = { x: PAD + (n.depth || 0) * COL, y: PAD + i * ROW }; });
-    var maxDepth = nodes.reduce(function (m, n) { return Math.max(m, n.depth || 0); }, 0);
+    nodes.forEach(function (n, i) {
+      // depth past MAX_COL keeps stacking downward instead of marching right
+      pos[n.id] = { x: PAD + Math.min(n.depth || 0, MAX_COL) * COL, y: PAD + i * ROW };
+    });
+    var maxDepth = Math.min(MAX_COL, nodes.reduce(function (m, n) { return Math.max(m, n.depth || 0); }, 0));
     var width = PAD * 2 + (maxDepth + 1) * COL, height = PAD * 2 + nodes.length * ROW;
     var s = '<svg width="' + width + '" height="' + height + '" role="img">';
     s += '<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">' +
@@ -360,6 +394,52 @@ function render(data) {
       s += '</g>';
     });
     s += '</svg>';
+    if (hiddenCount) {
+      s += '<div class="tl-note">图中仅显示前 ' + MAX_NODES + ' 个节点，另有 ' + hiddenCount +
+           ' 个未展开（时间轴与侧栏节点列表包含全部 ' + root.nodes.length + ' 个）</div>';
+    }
+    return s;
+  }
+
+  // Trigger rhythm: nodes plotted on the chain's own wall clock (blockTime), with the
+  // gap in seconds AND blocks between consecutive triggers.
+  function drawTimeline(root) {
+    var ns = root.nodes.slice().sort(function (a, b) { return Number(a.data.timestamp) - Number(b.data.timestamp); });
+    if (ns.length < 2) return '';
+    var t0 = Number(ns[0].data.timestamp), t1 = Number(ns[ns.length - 1].data.timestamp);
+    var span = Math.max(1, t1 - t0);
+    var W = 960, H = 70, pad = 30;
+    var x = function (t) { return pad + ((t - t0) / span) * (W - 2 * pad); };
+    // long chains: label every k-th node so the axis stays readable
+    var labelEvery = Math.max(1, Math.ceil(ns.length / 12));
+    var s = '<div class="tl"><svg width="' + W + '" height="' + H + '" role="img">';
+    s += '<line class="tl-axis" x1="' + pad + '" y1="36" x2="' + (W - pad) + '" y2="36"/>';
+    var lastLab = null, lastLabX = -1e9;
+    ns.forEach(function (n, i) {
+      var cx = x(Number(n.data.timestamp));
+      var labelled = i === 0 || i % labelEvery === 0 ||
+                     (i === ns.length - 1 && cx - lastLabX >= 44);
+      if (labelled && cx - lastLabX < 44) labelled = false;   // never overlap labels
+      s += '<circle class="tl-dot' + (n.data.success === false ? ' bad' : '') +
+           '" cx="' + cx + '" cy="36" r="' + (labelled ? 5 : 3) + '"/>';
+      if (labelled) {
+        s += '<text class="tl-lab" x="' + cx + '" y="22" text-anchor="middle">d' + esc(n.depth) + '</text>';
+        if (lastLab) {
+          // gap measured against the previous LABELLED node, so skipped labels don't
+          // make the spacing look smaller than it is
+          var dt = (Number(n.data.timestamp) - Number(lastLab.data.timestamp)) / 1000;
+          var dblk = Number(n.data.blockHeight) - Number(lastLab.data.blockHeight);
+          var mx = (x(Number(lastLab.data.timestamp)) + cx) / 2;
+          s += '<text class="tl-gap" x="' + mx + '" y="56" text-anchor="middle">' +
+               dt.toFixed(1) + 's / ' + (isNaN(dblk) ? '?' : dblk) + ' blk</text>';
+        }
+        lastLab = n;
+        lastLabX = cx;
+      }
+    });
+    s += '</svg>';
+    s += '<div class="tl-sum">链长 ' + ns.length + ' · 总跨度 ' + (span / 1000).toFixed(1) +
+         's · 平均触发间隔 ' + (span / 1000 / (ns.length - 1)).toFixed(1) + 's</div></div>';
     return s;
   }
 
@@ -379,6 +459,7 @@ function render(data) {
         '<div class="card-h"><div><code>' + esc(short(r.signature, 22)) + '</code> ' +
         '<span class="meta">via ' + esc(r.via) + '</span></div><div>' + tag + '</div></div>' +
         '<div class="graph">' + (r.error ? '<div class="empty">' + esc(r.error) + '</div>' : drawGraph(r)) + '</div>' +
+        (r.error ? '' : drawTimeline(r)) +
         '</div>';
     }).join('');
 

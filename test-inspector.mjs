@@ -35,7 +35,7 @@ const pageSize = 6;
 const pages = Math.max(1, Math.ceil(total / pageSize));
 
 check('INSP global installed', () => assert.equal(typeof window.INSP, 'object'));
-check('6 stat cards rendered', () => assert.equal(doc.querySelectorAll('.stat').length, 6));
+check('7 stat cards rendered', () => assert.equal(doc.querySelectorAll('.stat').length, 7));
 check('stat values present', () => {
   const v = doc.querySelector('.stat b').textContent.replace(/[^0-9]/g, '');
   assert.ok(Number(v) > 1_000_000, `block height looks wrong: ${v}`);
@@ -105,5 +105,25 @@ check('REX edges survive into the page when the snapshot has them', () => {
   console.log(`        (snapshot: subs=${subs} children=${kids} auto=${payload.auto ? 'yes' : 'no'})`);
   if (payload.auto) assert.ok(subs + kids > 0, 'auto picked a tx without REX edges');
 });
+
+// ---------- trigger rhythm timeline ----------
+const chainRoots = payload.roots.filter((r) => r.nodes.length > 1);
+check('chains counted in the stats strip', () => {
+  const labels = [...doc.querySelectorAll('.stat span')].map((s) => s.textContent.trim());
+  assert.ok(labels.includes('chains'), `stats missing chains: ${labels.join(',')}`);
+});
+if (chainRoots.length) {
+  check('timeline drawn for multi-node chains', () => {
+    assert.ok(doc.querySelectorAll('.tl').length >= 1, 'no timeline rendered');
+    const gaps = [...doc.querySelectorAll('.tl-gap')].map((t) => t.textContent.trim());
+    assert.ok(gaps.length >= 1, 'timeline has no gap labels');
+    assert.ok(gaps.every((g) => /\d+\.\ds \/ -?\d+ blk/.test(g)), `bad gap label: ${gaps[0]}`);
+  });
+  check('timeline summary states chain length and mean interval', () => {
+    const sum = doc.querySelector('.tl-sum').textContent;
+    assert.match(sum, /链长 \d+/);
+    assert.match(sum, /平均触发间隔 \d+\.\ds/);
+  });
+}
 
 console.log(`\nALL ${checks} UI CHECKS PASSED`);
