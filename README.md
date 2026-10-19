@@ -44,9 +44,15 @@ the faucet; later runs reuse it. **Never fund that wallet on mainnet.**
 ## Code
 
 ```
-demo.mjs        mnemonic → keypair → airdrop → transfer → live assertions
-playbook.md     notes on Rialo's Agent Grand Prix (AGP): economics, MCP, strategy
+demo.mjs         mnemonic → keypair → airdrop → transfer → live assertions
+deploy-probe.mjs attempts ProgramDeployment of a .polkavm blob (see caveat below)
+playbook.md      notes on Rialo's Agent Grand Prix (AGP): economics, MCP, strategy
 ```
+
+`deploy-probe.mjs` is a probe, not a working deploy: it uploads whatever blob you give it
+through the SDK's `ProgramDeployment` and prints the node's actual answer. The blob it ships
+with today is a 30-byte empty program, because producing a valid one needs Rialo's private
+`rialo-rust` toolchain (target `riscv64emac-solana-solana`) — see below.
 
 ## Not yet verified
 
