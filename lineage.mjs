@@ -15,7 +15,6 @@ const LIMIT = 8;
 const client = createRialoClient({ chain: RIALO_DEVNET_CHAIN });
 
 const isAddress = (s) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(s);
-const short = (s) => `${s.slice(0, 6)}…${s.slice(-4)}`;
 // RPC payloads carry BigInt fields; JSON round-trip them to strings before embedding.
 const toJSON = (o) => JSON.parse(JSON.stringify(o, (k, v) => (typeof v === 'bigint' ? v.toString() : v)));
 
