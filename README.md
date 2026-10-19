@@ -37,6 +37,7 @@ the faucet; later runs reuse it. **Never fund that wallet on mainnet.**
 | Units | 1 RLO = 1 000 000 000 kelvin |
 | Derivation | BIP44 coin type **756**, path `m/44'/756'/{index}'/0'` |
 | No `getSlot` | use `getBlockHeight` / `getEpochInfo` instead |
+| State settling | balances can lag a fraction of a second behind `sendAndConfirmTransaction` — **poll**, don't trust one read (measured ~200–250 ms here; a single-shot read did fail once) |
 | RPC surface | standard transfer/balance/account/getTransaction + Rialo extras: `getWorkflowLineage`, `getTriggeredTransactions`, `getDkgStatus`, `getSecretSharingPubkey`, `getValidatorAccounts` |
 | Program deploy | `ProgramDeployment` ships **PolkaVM** binaries in chunks (SDK supports it; not yet exercised here) |
 

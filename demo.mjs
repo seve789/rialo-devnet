@@ -88,10 +88,24 @@ log('transfer confirmed:', JSON.stringify({
   err: confirmed.err ?? null,
 }));
 
-const payerEnd = await client.getBalance(payer.publicKey);
-const recipEnd = await client.getBalance(recipient.publicKey);
-log('payer     delta:', rlo(payerStart - payerEnd));
-log('recipient delta:', rlo(recipEnd - recipStart));
+// Balances can lag behind the confirmation on devnet, so poll instead of trusting one read.
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function waitBalance(pubkey, predicate, timeoutMs = 20000) {
+  const started = Date.now();
+  let value = await client.getBalance(pubkey);
+  while (!predicate(value) && Date.now() - started < timeoutMs) {
+    await sleep(1000);
+    value = await client.getBalance(pubkey);
+  }
+  return { value, waitedMs: Date.now() - started };
+}
+
+const payerRes = await waitBalance(payer.publicKey, (b) => b <= payerStart - AMOUNT);
+const recipRes = await waitBalance(recipient.publicKey, (b) => b >= recipStart + AMOUNT);
+const payerEnd = payerRes.value;
+const recipEnd = recipRes.value;
+log(`payer     delta: ${rlo(payerStart - payerEnd)} (settled after ${payerRes.waitedMs}ms)`);
+log(`recipient delta: ${rlo(recipEnd - recipStart)} (settled after ${recipRes.waitedMs}ms)`);
 
 // --- assertions: fail loudly instead of just printing ---
 const checks = [];
