@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rialo Workflow Lineage</title>
+<style>
+  :root { --bg:#0f1116; --surface:#171a21; --fg:#e9ecf1; --muted:#9aa3b2; --border:#262b35;
+          --ok:#3ecf8e; --bad:#e5484d; --accent:#6d8dff; --sub:#c084fc; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg);
+         font:14px/1.6 ui-sans-serif,system-ui,"Segoe UI","Microsoft YaHei",sans-serif; }
+  header { padding:20px 24px 12px; border-bottom:1px solid var(--border); }
+  h1 { margin:0 0 4px; font-size:18px; letter-spacing:-.01em; }
+  .meta { color:var(--muted); font-size:12px; }
+  .stats { display:flex; gap:20px; flex-wrap:wrap; margin-top:10px; font-size:12px; color:var(--muted); }
+  .stats b { color:var(--fg); font-size:15px; font-weight:600; }
+  main { display:grid; grid-template-columns:1fr 340px; gap:16px; padding:16px 24px 32px; }
+  @media (max-width: 900px) { main { grid-template-columns:1fr; } }
+  .panel { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px; overflow:auto; }
+  .panel h2 { margin:0 0 10px; font-size:13px; color:var(--muted); font-weight:600;
+              text-transform:uppercase; letter-spacing:.06em; }
+  .node rect { fill:#1d212b; stroke:var(--border); stroke-width:1; rx:8; }
+  .node.root rect { stroke:var(--accent); }
+  .node.failed rect { stroke:var(--bad); }
+  .node.sub rect { stroke:var(--sub); stroke-dasharray:4 3; }
+  .node text { fill:var(--fg); font-size:11px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  .node .dim { fill:var(--muted); }
+  .edge { stroke:#39414f; stroke-width:1.5; fill:none; }
+  .edge.sub { stroke:var(--sub); stroke-dasharray:4 3; }
+  .depth-label { fill:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.08em; }
+  ul.roots { list-style:none; margin:0; padding:0; }
+  ul.roots li { padding:8px 0; border-bottom:1px solid var(--border); font-size:12px; }
+  ul.roots li:last-child { border-bottom:0; }
+  code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11px; color:var(--fg); }
+  .tag { display:inline-block; padding:1px 6px; border-radius:999px; font-size:10px;
+         border:1px solid var(--border); color:var(--muted); margin-left:6px; }
+  .tag.ok { color:var(--ok); border-color:color-mix(in srgb, var(--ok) 40%, transparent); }
+  .tag.err { color:var(--bad); border-color:color-mix(in srgb, var(--bad) 40%, transparent); }
+  .legend { display:flex; gap:14px; flex-wrap:wrap; font-size:11px; color:var(--muted); margin-top:8px; }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:5px; vertical-align:middle; }
+  .empty { color:var(--muted); font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Rialo · Workflow Lineage</h1>
+  <div class="meta">devnet · block 3822995 · generated 2026-10-19T21:15:20.748Z</div>
+  <div class="stats">
+    <div><b>8</b> root tx</div>
+    <div><b>8</b> nodes</div>
+    <div><b>0</b> subscription edges</div>
+  </div>
+  <div class="legend">
+    <span><span class="dot" style="background:#6d8dff"></span>root tx</span>
+    <span><span class="dot" style="background:#1d212b;border:1px solid #262b35"></span>workflow node</span>
+    <span><span class="dot" style="background:#c084fc"></span>REX subscription</span>
+    <span><span class="dot" style="background:#e5484d"></span>failed</span>
+  </div>
+</header>
+<main>
+  <section class="panel">
+    <h2>Lineage graph</h2>
+    <div id="graph"></div>
+  </section>
+  <aside class="panel">
+    <h2>Roots</h2>
+    <ul class="roots" id="roots"></ul>
+  </aside>
+</main>
+<script id="data" type="application/json">{"generatedAt":"2026-10-19T21:15:20.748Z","blockHeight":"3822995","args":["262drMzXMehx5BJnK8jH6EFksYyfMJSYKYm5VD9Nq7PW"],"roots":[{"signature":"28xfy1CTvpSWqKHywdBze4i5GLRgZNRgxoysRmYkaoHSMz1rsbVuQqvt3teFnyr2QeS4kuSCdZKYsqvutsbfzK9h","source":"address","error":null,"nodeCount":1,"truncated":false,"truncationReason":"none"},{"signature":"4wBvPxkB57Wz9d1meVxysEDxvEUb6HasKZJN3gwv5jSoPwNanHof2YDmKGS5es2nnU8VGfCyjLNHmjVpNiieErsU","source":"address","error":null,"nodeCount":1,"truncated":false,"truncationReason":"none"},{"signature":"4zq63PqFSiHauagzkpVsNzWUibLMtQc6Zkh3a7YQwg9oJ4P9UFVUEd7fakAjAsedoTjy9uChbNfsP9uNZjZhb5Pm","source":"address","error":null,"nodeCount":1,"truncated":false,"truncationReason":"none"},{"signature":"4PuYH97i87934MkEYBJCVe4NvM9EUtnwg7f8gNtSdycxm7gJwmbfkeumKAH2mcd9dz7wTti97JmkS8SxdF4RKzBG","source":"address","error":null,"nodeCount":1,"truncated":false,"truncationReason":"none"},{"signature":"3TXg3oLoB77B5oRoUbH1BJVQaj7QS7tdUACx5oRJJvWA7QCqKEkabHgQxf9qmKdnHwCGwuUbGNN14rCKdHPhk1PL","source":"address","error":null,"nodeCount":1,"truncated":false,"truncationReason":"none"},{"signature":"45CAgPRPvC883e6pudZDXy6un1AxB51tuPR1gDAHhxcg62jwmMuhdhfy7ZiKaCcxhMBk66aUuazrtgiMCJ6FU8AA","source":"address","error":null,"nodeCount":1,"truncated":false,"truncationReason":"none"},{"signature":"5nmYb6GMQdRBDpAsztqWBiUNJuo2xHN2vAyDWkfnoKytp5bzvvjnTfpfpoQtUu7pVXY2YbpgqpkpWAnE3ym44mpE","source":"address","error":null,"nodeCount":1,"truncated":false,"truncationReason":"none"},{"signature":"46UQhyLvAkLr12JEezisHfNZPP1B2nCMBc23kLTByG6wGwvuhLufbXXffHYgiJzre7oEMd4Cm8RbGCyocgpcMTR4","source":"address","error":null,"nodeCount":1,"truncated":false,"truncationReason":"none"}],"nodes":[{"id":"28xfy1CTvpSWqKHywdBze4i5GLRgZNRgxoysRmYkaoHSMz1rsbVuQqvt3teFnyr2QeS4kuSCdZKYsqvutsbfzK9h","depth":0,"success":true,"blockHeight":"3822240","timestamp":"1792444408082","instructionCount":1,"programIds":["11111111111111111111111111111111"],"subscriptions":[],"hasMoreChildren":false,"events":null,"isLeaf":true},{"id":"4wBvPxkB57Wz9d1meVxysEDxvEUb6HasKZJN3gwv5jSoPwNanHof2YDmKGS5es2nnU8VGfCyjLNHmjVpNiieErsU","depth":0,"success":true,"blockHeight":"3822102","timestamp":"1792444387676","instructionCount":1,"programIds":["11111111111111111111111111111111"],"subscriptions":[],"hasMoreChildren":false,"events":null,"isLeaf":true},{"id":"4zq63PqFSiHauagzkpVsNzWUibLMtQc6Zkh3a7YQwg9oJ4P9UFVUEd7fakAjAsedoTjy9uChbNfsP9uNZjZhb5Pm","depth":0,"success":true,"blockHeight":"3821165","timestamp":"1792444249396","instructionCount":1,"programIds":["11111111111111111111111111111111"],"subscriptions":[],"hasMoreChildren":false,"events":null,"isLeaf":true},{"id":"4PuYH97i87934MkEYBJCVe4NvM9EUtnwg7f8gNtSdycxm7gJwmbfkeumKAH2mcd9dz7wTti97JmkS8SxdF4RKzBG","depth":0,"success":true,"blockHeight":"3811457","timestamp":"1792442825307","instructionCount":1,"programIds":["11111111111111111111111111111111"],"subscriptions":[],"hasMoreChildren":false,"events":null,"isLeaf":true},{"id":"3TXg3oLoB77B5oRoUbH1BJVQaj7QS7tdUACx5oRJJvWA7QCqKEkabHgQxf9qmKdnHwCGwuUbGNN14rCKdHPhk1PL","depth":0,"success":true,"blockHeight":"3811362","timestamp":"1792442811223","instructionCount":1,"programIds":["11111111111111111111111111111111"],"subscriptions":[],"hasMoreChildren":false,"events":null,"isLeaf":true},{"id":"45CAgPRPvC883e6pudZDXy6un1AxB51tuPR1gDAHhxcg62jwmMuhdhfy7ZiKaCcxhMBk66aUuazrtgiMCJ6FU8AA","depth":0,"success":true,"blockHeight":"3811265","timestamp":"1792442796829","instructionCount":1,"programIds":["11111111111111111111111111111111"],"subscriptions":[],"hasMoreChildren":false,"events":null,"isLeaf":true},{"id":"5nmYb6GMQdRBDpAsztqWBiUNJuo2xHN2vAyDWkfnoKytp5bzvvjnTfpfpoQtUu7pVXY2YbpgqpkpWAnE3ym44mpE","depth":0,"success":true,"blockHeight":"3811134","timestamp":"1792442777392","instructionCount":1,"programIds":["11111111111111111111111111111111"],"subscriptions":[],"hasMoreChildren":false,"events":null,"isLeaf":true},{"id":"46UQhyLvAkLr12JEezisHfNZPP1B2nCMBc23kLTByG6wGwvuhLufbXXffHYgiJzre7oEMd4Cm8RbGCyocgpcMTR4","depth":0,"success":true,"blockHeight":"3811045","timestamp":"1792442764212","instructionCount":1,"programIds":["11111111111111111111111111111111"],"subscriptions":[],"hasMoreChildren":false,"events":null,"isLeaf":true}],"edges":[]}</script>
+<script>
+(function () {
+  var data = JSON.parse(document.getElementById('data').textContent);
+  var roots = new Map(data.roots.map(function (r) { return [r.signature, r]; }));
+
+  // ---- sidebar ----
+  var ul = document.getElementById('roots');
+  if (!data.roots.length) ul.innerHTML = '<li class="empty">no roots</li>';
+  data.roots.forEach(function (r) {
+    var li = document.createElement('li');
+    var tag = r.error ? '<span class="tag err">error</span>'
+                      : '<span class="tag ok">' + r.nodeCount + ' node</span>';
+    li.innerHTML = '<code>' + r.signature.slice(0, 10) + '…' + r.signature.slice(-6) + '</code>' + tag +
+      '<div class="meta">' + (r.error ? r.error : 'source: ' + r.source +
+        (r.truncated ? ' · truncated (' + r.truncationReason + ')' : '')) + '</div>';
+    ul.appendChild(li);
+  });
+
+  // ---- graph layout: column per depth ----
+  var COL = 250, ROW = 70, PAD = 20, W = 520, H = 46;
+  var depthOf = {};
+  data.nodes.forEach(function (n) { depthOf[n.id] = n.depth || 0; });
+
+  var byDepth = {};
+  data.nodes.forEach(function (n) {
+    var d = depthOf[n.id];
+    (byDepth[d] = byDepth[d] || []).push(n);
+  });
+  var depths = Object.keys(byDepth).map(Number).sort(function (a, b) { return a - b; });
+  var maxDepth = depths.length ? depths[depths.length - 1] : 0;
+  var maxRows = Math.max.apply(null, depths.map(function (d) { return byDepth[d].length; }).concat([1]));
+
+  var pos = {};
+  depths.forEach(function (d) {
+    byDepth[d].forEach(function (n, i) {
+      pos[n.id] = { x: PAD + d * COL, y: PAD + 24 + i * ROW };
+    });
+  });
+
+  var svgNS = 'http://www.w3.org/2000/svg';
+  var svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('width', PAD * 2 + (maxDepth + 1) * COL);
+  svg.setAttribute('height', PAD * 2 + 24 + maxRows * ROW);
+  svg.style.maxWidth = '100%';
+
+  depths.forEach(function (d) {
+    var label = document.createElementNS(svgNS, 'text');
+    label.setAttribute('class', 'depth-label');
+    label.setAttribute('x', PAD + d * COL);
+    label.setAttribute('y', 14);
+    label.textContent = 'depth ' + d;
+    svg.appendChild(label);
+  });
+
+  function edgePath(a, b) {
+    var x1 = a.x + W, y1 = a.y + H / 2, x2 = b.x, y2 = b.y + H / 2;
+    var mx = (x1 + x2) / 2;
+    return 'M' + x1 + ',' + y1 + ' C' + mx + ',' + y1 + ' ' + mx + ',' + y2 + ' ' + x2 + ',' + y2;
+  }
+
+  data.edges.forEach(function (e) {
+    if (!pos[e.from] || !pos[e.to]) return;
+    var p = document.createElementNS(svgNS, 'path');
+    p.setAttribute('d', edgePath(pos[e.from], pos[e.to]));
+    p.setAttribute('class', 'edge' + (e.kind === 'subscription' ? ' sub' : ''));
+    svg.appendChild(p);
+  });
+
+  data.nodes.forEach(function (n) {
+    var g = document.createElementNS(svgNS, 'g');
+    var cls = 'node';
+    if (roots.has(n.id)) cls += ' root';
+    if (n.success === false) cls += ' failed';
+    if (n.kind === 'subscription') cls += ' sub';
+    g.setAttribute('class', cls);
+    g.setAttribute('transform', 'translate(' + pos[n.id].x + ',' + pos[n.id].y + ')');
+
+    var rect = document.createElementNS(svgNS, 'rect');
+    rect.setAttribute('width', W);
+    rect.setAttribute('height', H);
+    rect.setAttribute('rx', 8);
+    g.appendChild(rect);
+
+    var t1 = document.createElementNS(svgNS, 'text');
+    t1.setAttribute('x', 10); t1.setAttribute('y', 19);
+    t1.textContent = n.kind === 'subscription' ? 'sub:' + n.id.slice(0, 12) + '…'
+                                               : n.id.slice(0, 14) + '…' + n.id.slice(-4);
+    g.appendChild(t1);
+
+    var t2 = document.createElementNS(svgNS, 'text');
+    t2.setAttribute('x', 10); t2.setAttribute('y', 35);
+    t2.setAttribute('class', 'dim');
+    t2.textContent = n.kind === 'subscription'
+      ? (n.raw ? JSON.stringify(n.raw).slice(0, 34) : 'subscription')
+      : 'blk ' + (n.blockHeight || '?') + ' · ix ' + (n.instructionCount ?? '?') +
+        (n.success === false ? ' · failed' : '');
+    g.appendChild(t2);
+
+    var title = document.createElementNS(svgNS, 'title');
+    title.textContent = n.id + (n.programIds && n.programIds.length ? '\nprograms: ' + n.programIds.join(', ') : '');
+    g.appendChild(title);
+
+    svg.appendChild(g);
+  });
+
+  var host = document.getElementById('graph');
+  if (data.nodes.length) host.appendChild(svg);
+  else host.innerHTML = '<p class="empty">no lineage nodes</p>';
+})();
+</script>
+</body>
+</html>

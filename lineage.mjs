@@ -10,7 +10,7 @@
 import fs from 'node:fs';
 import { createRialoClient, RIALO_DEVNET_CHAIN } from '@rialo/ts-cdk';
 
-const OUT = 'lineage.html';
+const OUT = process.env.OUT || 'index.html';
 const LIMIT = 8;
 const client = createRialoClient({ chain: RIALO_DEVNET_CHAIN });
 
