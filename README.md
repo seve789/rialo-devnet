@@ -56,6 +56,8 @@ with today is a 30-byte empty program, because producing a valid one needs Rialo
 
 ## Workflow lineage explorer
 
+**Live: https://seve789.github.io/rialo-devnet/**
+
 `getWorkflowLineage` is one of the RPCs that makes Rialo different from a plain SVM chain:
 it returns the DAG of transactions related through REX subscriptions.
 
