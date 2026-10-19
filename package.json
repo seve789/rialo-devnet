@@ -4,7 +4,8 @@
   "description": "Verified Rialo devnet lab: @rialo/ts-cdk smoke test with live assertions, plus AGP notes",
   "type": "module",
   "scripts": {
-    "test": "node demo.mjs"
+    "test": "node demo.mjs",
+    "lineage": "node lineage.mjs"
   },
   "keywords": ["rialo", "devnet", "cdk", "subzero-labs"],
   "license": "MIT",

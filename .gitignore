@@ -3,3 +3,5 @@ devnet-wallet.json
 .env
 .DS_Store
 *.log
+lineage.html
+lineage-shot.png

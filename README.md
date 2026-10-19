@@ -54,6 +54,32 @@ through the SDK's `ProgramDeployment` and prints the node's actual answer. The b
 with today is a 30-byte empty program, because producing a valid one needs Rialo's private
 `rialo-rust` toolchain (target `riscv64emac-solana-solana`) — see below.
 
+## Workflow lineage explorer
+
+`getWorkflowLineage` is one of the RPCs that makes Rialo different from a plain SVM chain:
+it returns the DAG of transactions related through REX subscriptions.
+
+```bash
+node lineage.mjs <signature-or-address> [more...]
+# e.g. your own address to pull its recent 8 transactions
+node lineage.mjs 262drMzXMehx5BJnK8jH6EFksYyfMJSYKYm5VD9Nq7PW
+```
+
+It writes a self-contained `lineage.html` — data embedded, no server, no CORS, works from
+`file://` and on Pages. Verified against live devnet:
+
+```
+roots=7 nodes=7 edges=0 nodesWithSubscriptions=0
+```
+
+**`edges=0` is the honest current state**: a subscription edge only appears when a program
+emits an event that triggers another transaction, and deploying a program is gated behind
+Rialo's private toolchain (see below). The renderer draws those edges the moment they exist —
+the shape it consumes is the real `lineage.workflowNodes[] / workflowChildren[] / subscriptions[]`
+from the node, not a mock.
+
+![lineage explorer](docs/lineage.png)
+
 ## Not yet verified
 
 - Deploying a program: the SDK exposes `ProgramDeployment` (PolkaVM chunks), and the program
